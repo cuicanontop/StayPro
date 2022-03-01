@@ -1,0 +1,6 @@
+{
+  "plugin": "dev.cuican.staypro.launch.MixinPlugin",
+  "required": false,
+  "package": "dev.cuican.staypro.mixin",
+  "compatibilityLevel": "JAVA_8"
+}

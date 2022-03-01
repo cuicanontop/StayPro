@@ -1,0 +1,178 @@
+buildscript {
+    ext.kotlin_version = '1.6.10'
+    repositories {
+        jcenter()
+        mavenCentral()
+        maven { url = 'https://files.minecraftforge.net/maven' }
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:4.+'
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+
+    }
+}
+
+apply plugin: 'kotlin'
+apply plugin: 'idea'
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'org.spongepowered.mixin'
+
+version project.modVersion
+group project.modGroup
+
+compileJava {
+    sourceCompatibility = targetCompatibility = '1.8'
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+    mavenCentral()
+    jcenter()
+    maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+    maven { url = 'https://impactdevelopment.github.io/maven/' }
+    maven { url = 'http://maven-eclipse.github.io/maven' }
+    maven { url = 'https://jitpack.io' }
+    maven { url = "https://repo.viaversion.com" }
+}
+
+minecraft {
+    mappings channel: 'stable', version: '39-1.12'
+
+    accessTransformer = file('src/main/resources/stay_at.cfg')
+
+    runs {
+        client {
+            workingDirectory project.file('run')
+
+            property 'fml.coreMods.load', 'org.spongepowered.asm.launch.MixinTweaker'
+            property 'mixin.env.disableRefMap', 'true' // Disable refmap so we don't get trolled by Baritone
+
+            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
+            property 'forge.logging.console.level', 'info'
+        }
+    }
+}
+
+configurations {
+    addLib
+}
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2860'
+    addLib "org.jetbrains.kotlin:kotlin-stdlib:1.6.0"
+    addLib "org.jetbrains.kotlin:kotlin-stdlib-common:$kotlin_version"
+    addLib ("com.viaversion:viaversion:4.0.2-SNAPSHOT"){
+        exclude module: 'mcmod-info'
+    }
+    addLib "com.viaversion:viabackwards:4.0.2-SNAPSHOT"
+    addLib "org.yaml:snakeyaml:1.29"
+    addLib("org.spongepowered:mixin:0.8-SNAPSHOT") {
+        exclude module: 'log4j-core'
+        exclude module: 'guava'
+        exclude module: 'gson'
+        exclude module: 'commons-io'
+    }
+
+    annotationProcessor('org.spongepowered:mixin:0.8.3:processor') {
+        exclude module: 'gson'
+    }
+
+    compileOnly('org.jetbrains:annotations:22.0.0')
+
+
+    implementation configurations.addLib
+}
+
+
+mixin {
+    add sourceSets.main, 'mixins.stay.refmap.json'
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'mcversion', project.mcVersion
+
+    exclude '**/rawimagefiles'
+
+    from(sourceSets.main.resources.srcDirs) {
+        include 'mcmod.info'
+        expand 'version': project.version,
+                'mcversion': project.mcVersion,
+                'modVersion': project.modVersion
+    }
+
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'mcmod.info'
+    }
+
+    rename '(.+_at.cfg)', 'META-INF/$1'
+}
+
+
+
+task clientJar(type: Jar, dependsOn: jar) {
+    from(zipTree(jar.archivePath)) {
+        include "dev/cuican/staypro/**"
+        include "mixins.stay.json"
+        include "mixins.stay.refmap.json"
+        exclude "dev/cuican/staypro/launch/DevFMLCoreMod"
+    }
+
+    classifier = "client"
+}
+
+task loaderJar(type: Jar, dependsOn: jar) {
+
+
+    from(zipTree(jar.archivePath)) {
+        configurations.addLib.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+
+    }
+
+
+
+
+    exclude(
+            "dev/cuican/staypro/**",
+            "mixins.stay.json",
+            "mixins.stay.refmap.json",
+            "dev/cuican/staypro/launch/DevFMLCoreMod",
+    )
+    version = "0.1"
+    archiveClassifier.set("Loader")
+    manifest = jar.manifest
+
+}
+jar {
+    manifest {
+        attributes(
+                'tweakClass': 'org.spongepowered.asm.launch.MixinTweaker',
+                'TweakOrder': 0,
+                'FMLCorePluginContainsFMLMod': 'true',
+                'FMLCorePlugin': 'dev.cuican.loader.FMLCoreMod',
+                'ForceLoadAsMod': 'true',
+                'FMLAT': 'stay_at.cfg'
+        )
+    }
+
+    from {
+        configurations.addLib.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+    exclude(
+            "fabric.mod.json",
+            "velocity-plugin.json",
+            "*.yml",
+            "META-INF/versions/**",
+            "**/*.RSA",
+            "**/*.SF",
+            "**/module-info.class",
+            "**/LICENSE",
+            "**/*.txt",
+    )
+}
+build.dependsOn(clientJar, loaderJar)

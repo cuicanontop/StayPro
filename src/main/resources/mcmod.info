@@ -1,0 +1,15 @@
+[
+  {
+    "modid": "Stay",
+    "name": "Stay_loader",
+    "description": "Bright independent writing",
+    "version": "1.0",
+    "mcversion": "1.12.2",
+    "logoFile": "Stay.png",
+    "authorList": [
+      "By;cuican"
+    ],
+    "screenshots": [],
+    "dependencies": []
+  }
+]
